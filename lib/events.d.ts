@@ -29,3 +29,11 @@ export declare const emitBuildingHeld: (
   held: (string | null)[],
   engine: Engine
 ) => void;
+/**
+ * Tells clients that `cityBuild` has built `built`.
+ */
+export declare const emitBuildingComplete: (
+  cityBuild: CityBuild,
+  built: unknown,
+  engine: Engine
+) => void;

@@ -1,6 +1,9 @@
+import { CityRegistry } from '@civ-clone/core-city/CityRegistry';
+import Player from '@civ-clone/core-player/Player';
 import { RuleRegistry } from '@civ-clone/core-rule/RuleRegistry';
 import Tile from '@civ-clone/core-world/Tile';
 import Unit from '@civ-clone/core-unit/Unit';
+import { UnitRegistry } from '@civ-clone/core-unit/UnitRegistry';
 import WorkedTile from '@civ-clone/core-city/WorkedTile';
 import { WorkedTileRegistry } from '@civ-clone/core-city/WorkedTileRegistry';
 /**
@@ -20,6 +23,17 @@ export declare const enemyWorkedTile: (
 export declare const releaseEnemyWorkedTile: (
   unit: Unit,
   tile: Tile,
+  workedTileRegistry: WorkedTileRegistry,
+  ruleRegistry: RuleRegistry
+) => void;
+/**
+ * At the start of `player`'s turn, each of its cities stops working any tile (other than its centre) that another
+ *  player's unit stands on, and its `TileReassigned` rules choose what it works instead.
+ */
+export declare const releaseOccupiedWorkedTiles: (
+  player: Player,
+  cityRegistry: CityRegistry,
+  unitRegistry: UnitRegistry,
   workedTileRegistry: WorkedTileRegistry,
   ruleRegistry: RuleRegistry
 ) => void;

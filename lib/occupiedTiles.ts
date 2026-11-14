@@ -1,7 +1,11 @@
+import City from '@civ-clone/core-city/City';
+import { CityRegistry } from '@civ-clone/core-city/CityRegistry';
+import Player from '@civ-clone/core-player/Player';
 import { RuleRegistry } from '@civ-clone/core-rule/RuleRegistry';
 import Tile from '@civ-clone/core-world/Tile';
 import TileReassigned from '@civ-clone/core-city/Rules/TileReassigned';
 import Unit from '@civ-clone/core-unit/Unit';
+import { UnitRegistry } from '@civ-clone/core-unit/UnitRegistry';
 import WorkedTile from '@civ-clone/core-city/WorkedTile';
 import { WorkedTileRegistry } from '@civ-clone/core-city/WorkedTileRegistry';
 
@@ -50,3 +54,31 @@ export const releaseEnemyWorkedTile = (
 
   ruleRegistry.process(TileReassigned, workedTile.city(), tile);
 };
+
+/**
+ * At the start of `player`'s turn, each of its cities stops working any tile (other than its centre) that another
+ *  player's unit stands on, and its `TileReassigned` rules choose what it works instead.
+ */
+export const releaseOccupiedWorkedTiles = (
+  player: Player,
+  cityRegistry: CityRegistry,
+  unitRegistry: UnitRegistry,
+  workedTileRegistry: WorkedTileRegistry,
+  ruleRegistry: RuleRegistry
+): void =>
+  cityRegistry.getByPlayer(player).forEach((city: City): void =>
+    workedTileRegistry
+      .getByCity(city)
+      .filter(
+        (workedTile: WorkedTile): boolean =>
+          workedTile.tile() !== city.tile() &&
+          unitRegistry
+            .getByTile(workedTile.tile())
+            .some((unit: Unit): boolean => unit.player() !== player)
+      )
+      .forEach((workedTile: WorkedTile): void => {
+        workedTileRegistry.unregister(workedTile);
+
+        ruleRegistry.process(TileReassigned, city, workedTile.tile());
+      })
+  );
