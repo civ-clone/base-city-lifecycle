@@ -23,6 +23,7 @@ import SpecialistRegistry from '@civ-clone/core-city/SpecialistRegistry';
 import TileReassigned from '@civ-clone/core-city/Rules/TileReassigned';
 import WorkedTile from '@civ-clone/core-city/WorkedTile';
 import WorkedTileRegistry from '@civ-clone/core-city/WorkedTileRegistry';
+import { clearCapturedBuild, keepCapturedBuild } from '../lib/captured';
 import { emitBuildingComplete } from '../lib/events';
 import { expect } from 'chai';
 import { releaseOccupiedWorkedTiles } from '../lib/occupiedTiles';
@@ -278,5 +279,41 @@ describe('emitBuildingComplete', (): void => {
     } as any);
 
     expect(emitted).to.eql([['city:building-complete', cityBuild, built]]);
+  });
+});
+
+describe('captured', (): void => {
+  const standInBuild = (building: unknown, log: unknown[][]) =>
+    ({
+      building: () => building,
+      setCleared: (...args: unknown[]) => log.push(['setCleared', ...args]),
+      cancel: (...args: unknown[]) => log.push(['cancel', ...args]),
+      clearQueue: (...args: unknown[]) => log.push(['clearQueue', ...args]),
+      reprice: (...args: unknown[]) => log.push(['reprice', ...args]),
+    } as any);
+
+  it('clears the build, or asks for one when there was none', (): void => {
+    const log: unknown[][] = [];
+
+    clearCapturedBuild(standInBuild(named('item'), log));
+    clearCapturedBuild(standInBuild(null, log));
+
+    expect(log).to.eql([
+      ['cancel', 'captured'],
+      ['setCleared', 'captured'],
+    ]);
+  });
+
+  it('keeps the item at the new price without the queue, or asks for one when there was none', (): void => {
+    const log: unknown[][] = [];
+
+    keepCapturedBuild(standInBuild(named('item'), log));
+    keepCapturedBuild(standInBuild(null, log));
+
+    expect(log).to.eql([
+      ['clearQueue'],
+      ['reprice'],
+      ['setCleared', 'captured'],
+    ]);
   });
 });

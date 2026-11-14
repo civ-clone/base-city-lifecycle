@@ -31,6 +31,8 @@ A city's turn and what goes with it, as a library for a ruleset's city rules:
   the rest), lifted unchanged from library-city.
 - `lib/created`: `registerCityBuild`, `registerCityGrowth` and `workCityTile(city, ...)`, which takes the new city's
   centre from any city that worked it (running that city's `TileReassigned` rules) and puts its citizens to work.
+- `lib/captured`: `clearCapturedBuild(cityBuild)` (the new owner chooses) and `keepCapturedBuild(cityBuild)` (the item
+  stays, repriced, without the queue).
 - `lib/destroyed`: `destroyUnits(units)` (skipping any already destroyed), `releaseWorkedTiles(city, ...)` and
   `releaseSpecialists(city, ...)`.
 
