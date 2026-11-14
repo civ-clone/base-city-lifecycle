@@ -1,6 +1,6 @@
 {
   "name": "@civ-clone/base-city-lifecycle",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A city's turn: its food stored and its production built, growing or running out of food, the squares it can work, its units unsupported, and the city actions offered to its player.",
   "repository": "git@github.com:civ-clone/base-city-lifecycle.git",
   "keywords": [
