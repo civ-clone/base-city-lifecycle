@@ -26,6 +26,7 @@ import WorkedTileRegistry from '@civ-clone/core-city/WorkedTileRegistry';
 import { clearCapturedBuild, keepCapturedBuild } from '../lib/captured';
 import { emitBuildingComplete } from '../lib/events';
 import { expect } from 'chai';
+import { readFileSync } from 'fs';
 import { releaseOccupiedWorkedTiles } from '../lib/occupiedTiles';
 
 class Entertainer extends Specialist {}
@@ -50,7 +51,28 @@ describe('assignWorkers', (): void => {
       .replace(/Yields_1\.(Food|Production|Trade)/g, '$1')
       .replace(/(Food|Production|Trade)_1\.default/g, '$1');
 
-  it("is library-city's, unchanged", (): void => {
+  // The whole compiled module, private helpers (`removeSpecialist`) included, with only where the yields come from and
+  //  the lifting note taken out of each.
+  it("is library-city 0.1.4's file, unchanged", (): void => {
+    const module = (path: string): string =>
+      readFileSync(path, 'utf8')
+        .split('\n')
+        .filter(
+          (line) =>
+            !line.startsWith('//') &&
+            !/^const (Yields|Food|Production|Trade)_1 = require/.test(line)
+        )
+        .join('\n')
+        .replace(/Yields_1\.(Food|Production|Trade)/g, '$1')
+        .replace(/(Food|Production|Trade)_1\.default/g, '$1');
+
+    expect(
+      module(require.resolve('../lib/assignWorkers.js')) ===
+        module(require.resolve('@civ-clone/library-city/lib/assignWorkers.js'))
+    ).true;
+  });
+
+  it("exports library-city's functions, each unchanged", (): void => {
     const names = Object.keys(library).filter(
       (name) => typeof (library as any)[name] === 'function'
     );
