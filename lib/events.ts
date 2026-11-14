@@ -38,3 +38,14 @@ export const emitBuildingHeld = (
 ): void => {
   engine.emit('city:building-held', cityBuild, item, held);
 };
+
+/**
+ * Tells clients that `cityBuild` has built `built`.
+ */
+export const emitBuildingComplete = (
+  cityBuild: CityBuild,
+  built: unknown,
+  engine: Engine
+): void => {
+  engine.emit('city:building-complete', cityBuild, built);
+};
