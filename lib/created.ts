@@ -105,6 +105,7 @@ export const workCityTile = (
     cityGrowthRegistry,
     workedTileRegistry,
     specialistRegistry,
-    availableSpecialistRegistry
+    availableSpecialistRegistry,
+    ruleRegistry
   );
 };
