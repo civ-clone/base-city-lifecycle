@@ -26,7 +26,6 @@ import WorkedTileRegistry from '@civ-clone/core-city/WorkedTileRegistry';
 import { clearCapturedBuild, keepCapturedBuild } from '../lib/captured';
 import { emitBuildingComplete } from '../lib/events';
 import { expect } from 'chai';
-import { readFileSync } from 'fs';
 import { releaseOccupiedWorkedTiles } from '../lib/occupiedTiles';
 
 class Entertainer extends Specialist {}
@@ -40,6 +39,7 @@ const named = (name: string, extra: object = {}) => ({ name, ...extra } as any),
       tiles: () => ({ entries: () => [], includes: () => false }),
       tilesWorked: () => ({ yields: () => [], entries: () => [] }),
       player: () => player,
+      tileYieldRules: () => [],
     }),
   growthOf = (size: number) =>
     ({ getByCity: () => ({ size: () => size }) } as any);
@@ -51,44 +51,69 @@ describe('assignWorkers', (): void => {
       .replace(/Yields_1\.(Food|Production|Trade)/g, '$1')
       .replace(/(Food|Production|Trade)_1\.default/g, '$1');
 
-  // The whole compiled module, private helpers (`removeSpecialist`) included, with only where the yields come from and
-  //  the lifting note taken out of each.
-  it("is library-city 0.1.4's file, unchanged", (): void => {
-    const module = (path: string): string =>
-      readFileSync(path, 'utf8')
-        .split('\n')
-        .filter(
-          (line) =>
-            !line.startsWith('//') &&
-            !/^const (Yields|Food|Production|Trade)_1 = require/.test(line)
-        )
-        .join('\n')
-        .replace(/Yields_1\.(Food|Production|Trade)/g, '$1')
-        .replace(/(Food|Production|Trade)_1\.default/g, '$1');
+  // Those that ask the city what a square gives it, or which specialists it may have, or pass on the rules for that
+  //  (M2c). The rest are as lifted.
+  const seams = [
+    'addSpecialist',
+    'assignWorker',
+    'assignWorkers',
+    'changeSpecialist',
+    'changeWorkedTile',
+    'default',
+    'reassignWorkers',
+    'sortTiles',
+  ];
 
-    expect(
-      module(require.resolve('../lib/assignWorkers.js')) ===
-        module(require.resolve('@civ-clone/library-city/lib/assignWorkers.js'))
-    ).true;
-  });
-
-  it("exports library-city's functions, each unchanged", (): void => {
+  it("exports library-city's functions, each unchanged but those with the M2c seams", (): void => {
     const names = Object.keys(library).filter(
       (name) => typeof (library as any)[name] === 'function'
     );
 
     expect(names).to.not.be.empty;
+    expect(names).to.include.members(seams);
     expect(
       Object.keys(base).filter(
         (name) => typeof (base as any)[name] === 'function'
       )
-    ).to.have.members(names);
+    ).to.include.members(names);
 
-    names.forEach((name: string): void => {
-      expect(source((base as any)[name]), name).to.equal(
-        source((library as any)[name])
-      );
-    });
+    names
+      .filter((name) => !seams.includes(name))
+      .forEach((name: string): void => {
+        expect(source((base as any)[name]), name).to.equal(
+          source((library as any)[name])
+        );
+      });
+  });
+
+  it('sorts squares as library-city 0.1.4 does with no `CityTileYield` rules', (): void => {
+    // Squares scored by `Tile#score`, with what the weights were seen to be.
+    const weightsSeen: unknown[][] = [],
+      square = (name: string, value: number) =>
+        named(name, {
+          score: (player: unknown, weights: unknown) => {
+            weightsSeen.push([name, weights]);
+
+            return value;
+          },
+        }),
+      squares = [
+        square('a', 3),
+        square('b', 9),
+        square('c', 1),
+        square('d', 9),
+      ],
+      city = standInCity('city', named('centre'), named('player'));
+
+    const fromBase = base.sortTiles([...squares], city).map(({ name }) => name),
+      baseWeights = weightsSeen.splice(0),
+      fromLibrary = library
+        .sortTiles([...squares], city)
+        .map(({ name }: any) => name);
+
+    expect(fromBase).to.eql(fromLibrary);
+    expect(fromBase).to.eql(['b', 'd', 'a', 'c']);
+    expect(baseWeights).to.eql(weightsSeen);
   });
 
   it('places citizens as specialists of the first kind offered, and turns one into the next kind', (): void => {

@@ -28,7 +28,15 @@ A city's turn and what goes with it, as a library for a ruleset's city rules:
   `emitBuildingHeld(cityBuild, item, held, engine)` and `emitBuildingComplete(cityBuild, built, engine)`, for clients.
 - `lib/assignWorkers`: placing a city's citizens on its best tiles or as specialists (`assignWorkers`, `assignWorker`,
   `reassignWorkers`, `releaseCitizens`, `changeWorkedTile`, `addSpecialist`, `changeSpecialist`, `citizenCount` and
-  the rest), lifted unchanged from library-city.
+  the rest), lifted from library-city 0.1.4. With no `CityTileYield` or `SpecialistAvailable` rule registered they do
+  exactly what library-city 0.1.4's do:
+  - squares are weighed by what they give the city, `City#tileYields` (core-city's `CityTileYield` rules), not only by
+    the tile's own yields: `sortTiles`, `cityTileScore(city, tile, weights)` and `workedTileYields(city)`;
+  - specialists are made, cycled and put back to work among the kinds the city may have, `availableSpecialists(city,
+    availableSpecialistRegistry, ruleRegistry)`: those the ruleset offers, less any a `SpecialistAvailable` rule
+    (`Rules/SpecialistAvailable`) refuses the city. A specialist of a refused kind is the first put back to work.
+    `assignWorkers`, `assignWorker`, `reassignWorkers`, `changeWorkedTile`, `addSpecialist` and `changeSpecialist` take
+    the `RuleRegistry` as their last argument.
 - `lib/created`: `registerCityBuild`, `registerCityGrowth` and `workCityTile(city, ...)`, which takes the new city's
   centre from any city that worked it (running that city's `TileReassigned` rules) and puts its citizens to work.
 - `lib/captured`: `clearCapturedBuild(cityBuild)` (the new owner chooses) and `keepCapturedBuild(cityBuild)` (the item
@@ -39,5 +47,5 @@ A city's turn and what goes with it, as a library for a ruleset's city rules:
 The yield types a ruleset pays unit support with are passed in (`FoodSupportType`, `ProductionSupportType`: a yield
 that knows its `unit()`).
 
-A library: it registers no rules. The ruleset decides the rules, their ids and order, and when each runs. See
+A library: it registers no rules (`Rules/SpecialistAvailable` is a rule type for a ruleset to register). The ruleset decides the rules, their ids and order, and when each runs. See
 `civ1-city` for Civilization's.
