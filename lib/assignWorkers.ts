@@ -21,10 +21,7 @@ import {
   SpecialistRegistry,
   instance as specialistRegistryInstance,
 } from '@civ-clone/core-city/SpecialistRegistry';
-import {
-  RuleRegistry,
-  instance as ruleRegistryInstance,
-} from '@civ-clone/core-rule/RuleRegistry';
+import { RuleRegistry } from '@civ-clone/core-rule/RuleRegistry';
 import {
   WorkedTileRegistry,
   instance as workedTileRegistryInstance,
@@ -59,7 +56,7 @@ export const citizenCount = (
 export const availableSpecialists = (
   city: City,
   availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
-  ruleRegistry: RuleRegistry = ruleRegistryInstance
+  ruleRegistry: RuleRegistry = city.ruleRegistry()
 ): (typeof Specialist)[] => {
   const types = availableSpecialistRegistry.entries();
 
@@ -75,6 +72,47 @@ export const availableSpecialists = (
 };
 
 /**
+ * Turns each of `city`'s specialists of a kind a `SpecialistAvailable` rule now refuses it (a city that has shrunk, say)
+ * into the first kind it may have, and returns how many changed. One with no kind left to become stays as it is. With
+ * no such rule nothing is asked and nothing changes.
+ */
+export const replaceRefusedSpecialists = (
+  city: City,
+  specialistRegistry: SpecialistRegistry = specialistRegistryInstance,
+  availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
+  ruleRegistry: RuleRegistry = city.ruleRegistry()
+): number => {
+  if (ruleRegistry.get(SpecialistAvailable).length === 0) {
+    return 0;
+  }
+
+  const types = availableSpecialists(
+      city,
+      availableSpecialistRegistry,
+      ruleRegistry
+    ),
+    [DefaultType] = types;
+
+  if (!DefaultType) {
+    return 0;
+  }
+
+  const refused = specialistRegistry
+    .getByCity(city)
+    .filter(
+      (specialist) =>
+        !types.some((SpecialistType) => specialist instanceof SpecialistType)
+    );
+
+  refused.forEach((specialist: Specialist): void => {
+    specialistRegistry.unregister(specialist);
+    specialistRegistry.register(new DefaultType(city));
+  });
+
+  return refused.length;
+};
+
+/**
  * Makes a citizen of `city` a `Specialist` of the first kind it may have (an Entertainer, in Civ1). Returns `null` when
  * the ruleset offers it no specialists.
  */
@@ -82,7 +120,7 @@ export const addSpecialist = (
   city: City,
   specialistRegistry: SpecialistRegistry = specialistRegistryInstance,
   availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
-  ruleRegistry: RuleRegistry = ruleRegistryInstance
+  ruleRegistry?: RuleRegistry
 ): Specialist | null => {
   const [SpecialistType] = availableSpecialists(
     city,
@@ -109,7 +147,7 @@ export const changeSpecialist = (
   specialist: Specialist,
   specialistRegistry: SpecialistRegistry = specialistRegistryInstance,
   availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
-  ruleRegistry: RuleRegistry = ruleRegistryInstance
+  ruleRegistry?: RuleRegistry
 ): Specialist => {
   const city = specialist.city(),
     types = availableSpecialists(
@@ -144,7 +182,7 @@ const removeSpecialist = (
   city: City,
   specialistRegistry: SpecialistRegistry,
   availableSpecialistRegistry: AvailableSpecialistRegistry,
-  ruleRegistry: RuleRegistry
+  ruleRegistry: RuleRegistry = city.ruleRegistry()
 ): boolean => {
   const specialists = specialistRegistry.getByCity(city),
     types = availableSpecialists(
@@ -271,7 +309,8 @@ export const getHighestValueAvailableCityTiles = (
   );
 
 /**
- * Rearranges the tiles `city` works from scratch. Its specialists stay as they are.
+ * Rearranges the tiles `city` works from scratch. Its specialists stay as they are, but for any of a kind the city may
+ * no longer have (`replaceRefusedSpecialists`).
  */
 export const reassignWorkers = (
   city: City,
@@ -280,7 +319,7 @@ export const reassignWorkers = (
   workedTileRegistry: WorkedTileRegistry = workedTileRegistryInstance,
   specialistRegistry: SpecialistRegistry = specialistRegistryInstance,
   availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
-  ruleRegistry: RuleRegistry = ruleRegistryInstance
+  ruleRegistry?: RuleRegistry
 ) => {
   workedTileRegistry
     .getBy('city', city)
@@ -289,6 +328,13 @@ export const reassignWorkers = (
     );
 
   workedTileRegistry.register(new WorkedTile(city.tile(), city));
+
+  replaceRefusedSpecialists(
+    city,
+    specialistRegistry,
+    availableSpecialistRegistry,
+    ruleRegistry
+  );
 
   assignWorkers(
     city,
@@ -320,7 +366,7 @@ export const assignWorkers: (
   workedTileRegistry: WorkedTileRegistry = workedTileRegistryInstance,
   specialistRegistry: SpecialistRegistry = specialistRegistryInstance,
   availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
-  ruleRegistry: RuleRegistry = ruleRegistryInstance
+  ruleRegistry?: RuleRegistry
 ): void => {
   const cityGrowth = cityGrowthRegistry.getByCity(city),
     placed = () =>
@@ -370,7 +416,7 @@ export const assignWorker: (
   workedTileRegistry: WorkedTileRegistry = workedTileRegistryInstance,
   specialistRegistry: SpecialistRegistry = specialistRegistryInstance,
   availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
-  ruleRegistry: RuleRegistry = ruleRegistryInstance
+  ruleRegistry?: RuleRegistry
 ): void => {
   const [newTile] = getHighestValueAvailableCityTiles(
     city,
@@ -418,7 +464,7 @@ export const changeWorkedTile: (
   workedTileRegistry: WorkedTileRegistry = workedTileRegistryInstance,
   specialistRegistry: SpecialistRegistry = specialistRegistryInstance,
   availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
-  ruleRegistry: RuleRegistry = ruleRegistryInstance
+  ruleRegistry?: RuleRegistry
 ): WorkedTileChange => {
   if (tile === city.tile() || !city.tiles().includes(tile)) {
     return 'none';
@@ -476,13 +522,16 @@ export const changeWorkedTile: (
 
 /**
  * Takes jobs away from `city`'s citizens until it has no more than its size allows: specialists first, then the
- * workers on the least valuable tiles.
+ * workers on the least valuable tiles. Any specialist left of a kind the city may no longer have becomes one of a kind
+ * it may (`replaceRefusedSpecialists`).
  */
 export const releaseCitizens = (
   city: City,
   cityGrowth: CityGrowth,
   workedTileRegistry: WorkedTileRegistry = workedTileRegistryInstance,
-  specialistRegistry: SpecialistRegistry = specialistRegistryInstance
+  specialistRegistry: SpecialistRegistry = specialistRegistryInstance,
+  availableSpecialistRegistry: AvailableSpecialistRegistry = availableSpecialistRegistryInstance,
+  ruleRegistry?: RuleRegistry
 ): void => {
   const specialists = specialistRegistry.getByCity(city);
 
@@ -496,6 +545,13 @@ export const releaseCitizens = (
 
   reduceWorkers(city, cityGrowth).forEach((tile: Tile): void =>
     workedTileRegistry.unregisterByTile(tile)
+  );
+
+  replaceRefusedSpecialists(
+    city,
+    specialistRegistry,
+    availableSpecialistRegistry,
+    ruleRegistry
   );
 };
 

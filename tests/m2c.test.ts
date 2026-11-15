@@ -4,6 +4,8 @@ import {
   changeSpecialist,
   changeWorkedTile,
   cityTileScore,
+  releaseCitizens,
+  replaceRefusedSpecialists,
   sortTiles,
   workedTileYields,
 } from '../lib/assignWorkers';
@@ -35,7 +37,7 @@ describe('SpecialistAvailable', (): void => {
     const ruleRegistry = new RuleRegistry(),
       available = new AvailableSpecialistRegistry(),
       specialistRegistry = new SpecialistRegistry(),
-      city = named('city', { size });
+      city = named('city', { size, ruleRegistry: () => ruleRegistry });
 
     available.register(Entertainer, TaxCollector, Scientist);
 
@@ -111,6 +113,69 @@ describe('SpecialistAvailable', (): void => {
       expect(seen).to.eql(expected);
       expect(specialistRegistry.getByCity(city)).to.eql([specialist]);
     });
+  });
+
+  it("asks the city's own rules when none are passed", (): void => {
+    const { available, city } = setUp(3, true);
+
+    expect(availableSpecialists(city, available)).to.eql([Entertainer]);
+    expect(
+      changeSpecialist(
+        addSpecialist(city, new SpecialistRegistry(), available)!,
+        new SpecialistRegistry(),
+        available
+      )
+    ).instanceOf(Entertainer);
+  });
+
+  it('turns a kind the city may no longer have into one it may, once it shrinks', (): void => {
+    const { available, city, ruleRegistry, specialistRegistry } = setUp(
+        5,
+        true
+      ),
+      taxCollector = new TaxCollector(city),
+      entertainer = new Entertainer(city);
+
+    specialistRegistry.register(taxCollector, entertainer);
+
+    // Still size 5: nothing changes.
+    expect(
+      replaceRefusedSpecialists(city, specialistRegistry, available)
+    ).to.equal(0);
+
+    city.size = 4;
+    city.tilesWorked = () => ({ entries: () => [], yields: () => [] });
+    city.player = () => null;
+    city.tile = () => null;
+    city.tileYieldRules = () => [];
+
+    releaseCitizens(
+      city,
+      { size: () => 4 } as any,
+      { getByCity: () => [], getTilesByCity: () => [] } as any,
+      specialistRegistry,
+      available
+    );
+
+    expect(
+      specialistRegistry
+        .getByCity(city)
+        .map((specialist) => specialist.constructor)
+    ).to.eql([Entertainer, Entertainer]);
+    expect(specialistRegistry.getByCity(city)).to.include(entertainer);
+    expect(ruleRegistry.get(SpecialistAvailable)).to.have.length(1);
+  });
+
+  it('changes no specialist with no rule', (): void => {
+    const { available, city, specialistRegistry } = setUp(3, false),
+      scientist = new Scientist(city);
+
+    specialistRegistry.register(scientist);
+
+    expect(
+      replaceRefusedSpecialists(city, specialistRegistry, available)
+    ).to.equal(0);
+    expect(specialistRegistry.getByCity(city)).to.eql([scientist]);
   });
 
   it('makes no specialist when the city may have none', (): void => {

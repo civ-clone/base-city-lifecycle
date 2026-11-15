@@ -30,6 +30,17 @@ export declare const availableSpecialists: (
   ruleRegistry?: RuleRegistry
 ) => (typeof Specialist)[];
 /**
+ * Turns each of `city`'s specialists of a kind a `SpecialistAvailable` rule now refuses it (a city that has shrunk, say)
+ * into the first kind it may have, and returns how many changed. One with no kind left to become stays as it is. With
+ * no such rule nothing is asked and nothing changes.
+ */
+export declare const replaceRefusedSpecialists: (
+  city: City,
+  specialistRegistry?: SpecialistRegistry,
+  availableSpecialistRegistry?: AvailableSpecialistRegistry,
+  ruleRegistry?: RuleRegistry
+) => number;
+/**
  * Makes a citizen of `city` a `Specialist` of the first kind it may have (an Entertainer, in Civ1). Returns `null` when
  * the ruleset offers it no specialists.
  */
@@ -81,7 +92,8 @@ export declare const getHighestValueAvailableCityTiles: (
   workedTileRegistry?: WorkedTileRegistry
 ) => Tile[];
 /**
- * Rearranges the tiles `city` works from scratch. Its specialists stay as they are.
+ * Rearranges the tiles `city` works from scratch. Its specialists stay as they are, but for any of a kind the city may
+ * no longer have (`replaceRefusedSpecialists`).
  */
 export declare const reassignWorkers: (
   city: City,
@@ -137,13 +149,16 @@ export declare const changeWorkedTile: (
 ) => WorkedTileChange;
 /**
  * Takes jobs away from `city`'s citizens until it has no more than its size allows: specialists first, then the
- * workers on the least valuable tiles.
+ * workers on the least valuable tiles. Any specialist left of a kind the city may no longer have becomes one of a kind
+ * it may (`replaceRefusedSpecialists`).
  */
 export declare const releaseCitizens: (
   city: City,
   cityGrowth: CityGrowth,
   workedTileRegistry?: WorkedTileRegistry,
-  specialistRegistry?: SpecialistRegistry
+  specialistRegistry?: SpecialistRegistry,
+  availableSpecialistRegistry?: AvailableSpecialistRegistry,
+  ruleRegistry?: RuleRegistry
 ) => void;
 export declare const reduceWorkers: (
   city: City,

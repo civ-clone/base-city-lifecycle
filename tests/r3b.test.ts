@@ -40,6 +40,7 @@ const named = (name: string, extra: object = {}) => ({ name, ...extra } as any),
       tilesWorked: () => ({ yields: () => [], entries: () => [] }),
       player: () => player,
       tileYieldRules: () => [],
+      ruleRegistry: () => new RuleRegistry(),
     }),
   growthOf = (size: number) =>
     ({ getByCity: () => ({ size: () => size }) } as any);
@@ -61,6 +62,7 @@ describe('assignWorkers', (): void => {
     'changeWorkedTile',
     'default',
     'reassignWorkers',
+    'releaseCitizens',
     'sortTiles',
   ];
 

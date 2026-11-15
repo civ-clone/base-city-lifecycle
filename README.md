@@ -34,9 +34,11 @@ A city's turn and what goes with it, as a library for a ruleset's city rules:
     the tile's own yields: `sortTiles`, `cityTileScore(city, tile, weights)` and `workedTileYields(city)`;
   - specialists are made, cycled and put back to work among the kinds the city may have, `availableSpecialists(city,
     availableSpecialistRegistry, ruleRegistry)`: those the ruleset offers, less any a `SpecialistAvailable` rule
-    (`Rules/SpecialistAvailable`) refuses the city. A specialist of a refused kind is the first put back to work.
-    `assignWorkers`, `assignWorker`, `reassignWorkers`, `changeWorkedTile`, `addSpecialist` and `changeSpecialist` take
-    the `RuleRegistry` as their last argument.
+    (`Rules/SpecialistAvailable`) refuses the city. A specialist of a refused kind is the first put back to work, and
+    `releaseCitizens` and `reassignWorkers` turn any left into the first kind the city may have
+    (`replaceRefusedSpecialists`). `assignWorkers`, `assignWorker`, `reassignWorkers`, `releaseCitizens`,
+    `changeWorkedTile`, `addSpecialist` and `changeSpecialist` take a `RuleRegistry` as their last argument; without
+    one they ask the city's own (`City#ruleRegistry()`, the game's rules), as `City#tileYields` does.
 - `lib/created`: `registerCityBuild`, `registerCityGrowth` and `workCityTile(city, ...)`, which takes the new city's
   centre from any city that worked it (running that city's `TileReassigned` rules) and puts its citizens to work.
 - `lib/captured`: `clearCapturedBuild(cityBuild)` (the new owner chooses) and `keepCapturedBuild(cityBuild)` (the item
