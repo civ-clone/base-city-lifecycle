@@ -231,9 +231,10 @@ describe('processYield', (): void => {
     expect(log).to.eql([['add', true, 3], ['check']]);
   });
 
-  const unitAt = (name: string, distance: number) =>
+  const unitAt = (name: string, distance: number, destroyed = false) =>
       named(name, {
         tile: () => ({ distanceFrom: () => distance }),
+        destroyed: () => destroyed,
       }),
     setUp = (disorder: boolean) => {
       const log: unknown[][] = [],
@@ -303,6 +304,191 @@ describe('processYield', (): void => {
       ['check'],
     ]);
     expect(production.value()).to.equal(-2);
+  });
+
+  it('gives back the support of a unit already destroyed without losing it again (civ-clone/web-renderer#1000)', (): void => {
+    const { log, ruleRegistry, city, cityBuildRegistry } = setUp(false);
+
+    buildWithProduction(
+      new Grain(-2),
+      city,
+      [
+        new Kept(-1, unitAt('near', 1)),
+        new Kept(-1, unitAt('far', 5, true)),
+        new Kept(-1, unitAt('middle', 3)),
+      ],
+      Kept,
+      cityBuildRegistry,
+      ruleRegistry
+    );
+
+    expect(log).to.eql([
+      ['unsupported', 'middle', -1],
+      ['yields'],
+      ['disorder?'],
+      ['add', 0],
+      ['check'],
+    ]);
+  });
+
+  it('gives back the support of a destroyed unit nearer the city before losing one further away (civ-clone/web-renderer#1000)', (): void => {
+    const { log, ruleRegistry, city, cityBuildRegistry } = setUp(false);
+
+    buildWithProduction(
+      new Grain(-1),
+      city,
+      [new Kept(-1, unitAt('near', 1, true)), new Kept(-1, unitAt('far', 5))],
+      Kept,
+      cityBuildRegistry,
+      ruleRegistry
+    );
+
+    expect(log).to.eql([['yields'], ['disorder?'], ['add', 0], ['check']]);
+  });
+
+  it('gives back the support of a unit lost while another is disbanded, before disbanding any more (civ-clone/web-renderer#1000)', (): void => {
+    const { log, ruleRegistry, city, cityBuildRegistry } = setUp(false);
+    let cargoLost = false;
+    const transport = unitAt('transport', 5),
+      cargo = named('cargo', {
+        tile: () => ({ distanceFrom: () => 5 }),
+        destroyed: () => cargoLost,
+      });
+
+    // Disbanding the transport takes its cargo down with it.
+    ruleRegistry.register(
+      new Unsupported(
+        new Effect((forCity: unknown, unit: unknown): void => {
+          if (unit === transport) {
+            cargoLost = true;
+          }
+        })
+      )
+    );
+
+    buildWithProduction(
+      new Grain(-2),
+      city,
+      [
+        new Kept(-1, transport),
+        new Kept(-1, cargo),
+        new Kept(-1, unitAt('near', 1)),
+      ],
+      Kept,
+      cityBuildRegistry,
+      ruleRegistry
+    );
+
+    expect(log).to.eql([
+      ['unsupported', 'transport', -1],
+      ['yields'],
+      ['disorder?'],
+      ['add', 0],
+      ['check'],
+    ]);
+  });
+
+  it('gives back only as much dead support as the city is short (civ-clone/web-renderer#1000)', (): void => {
+    const { log, ruleRegistry, city, cityBuildRegistry } = setUp(false);
+    let sunk = false;
+    const transport = unitAt('transport', 5),
+      cargo = ['cargo 1', 'cargo 2'].map((name) =>
+        named(name, {
+          tile: () => ({ distanceFrom: () => 5 }),
+          destroyed: () => sunk,
+        })
+      );
+
+    ruleRegistry.register(
+      new Unsupported(
+        new Effect((forCity: unknown, unit: unknown): void => {
+          if (unit === transport) {
+            sunk = true;
+          }
+        })
+      )
+    );
+
+    buildWithProduction(
+      new Grain(-2),
+      city,
+      [
+        new Kept(-1, transport),
+        ...cargo.map((unit) => new Kept(-1, unit)),
+        new Kept(-1, unitAt('near', 1)),
+      ],
+      Kept,
+      cityBuildRegistry,
+      ruleRegistry
+    );
+
+    // One cargo line covers what's left of the deficit; the other's support is still owed.
+    expect(log).to.eql([
+      ['unsupported', 'transport', -1],
+      ['yields'],
+      ['disorder?'],
+      ['add', 0],
+      ['check'],
+    ]);
+  });
+
+  it("doesn't give back a disbanded unit's support twice once it's destroyed (civ-clone/web-renderer#1000)", (): void => {
+    const { log, ruleRegistry, city, cityBuildRegistry } = setUp(false);
+    const gone = new Set<unknown>(),
+      unitNamed = (name: string, distance: number) => {
+        const unit = named(name, {
+          tile: () => ({ distanceFrom: () => distance }),
+          destroyed: () => gone.has(unit),
+        });
+
+        return unit;
+      };
+
+    // As in a game: disbanding destroys the unit.
+    ruleRegistry.register(
+      new Unsupported(
+        new Effect((forCity: unknown, unit: unknown): void => {
+          gone.add(unit);
+        })
+      )
+    );
+
+    buildWithProduction(
+      new Grain(-2),
+      city,
+      [
+        new Kept(-1, unitNamed('near', 1)),
+        new Kept(-1, unitNamed('far', 5)),
+        new Kept(-1, unitNamed('middle', 3)),
+      ],
+      Kept,
+      cityBuildRegistry,
+      ruleRegistry
+    );
+
+    expect(log).to.eql([
+      ['unsupported', 'far', -1],
+      ['unsupported', 'middle', -1],
+      ['yields'],
+      ['disorder?'],
+      ['add', 0],
+      ['check'],
+    ]);
+  });
+
+  it('still owes the support of a unit already gone when there is production to spare', (): void => {
+    const { log, ruleRegistry, city, cityBuildRegistry } = setUp(false);
+
+    buildWithProduction(
+      new Grain(1),
+      city,
+      [new Kept(-1, unitAt('lost', 3, true))],
+      Kept,
+      cityBuildRegistry,
+      ruleRegistry
+    );
+
+    expect(log).to.eql([['yields'], ['disorder?'], ['add', 1], ['check']]);
   });
 
   it('builds nothing while there is civil disorder, but still checks the build', (): void => {
