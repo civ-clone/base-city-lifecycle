@@ -18,6 +18,8 @@ export declare const storeFood: (
  *
  * While the production, net of its units' support, is below 0, the units it can't support go, furthest from the city
  *  first: each is handed to the `Unsupported` rules, and its support (a `ProductionSupportType` yield) is given back.
+ *  While production is short, a unit destroyed since `cityYields` was worked out (or by an earlier disband) gives its
+ *  support back first, and isn't lost again.
  *  Nothing is added to the build while a `CivilDisorder` rule holds for the city.
  */
 export declare const buildWithProduction: (

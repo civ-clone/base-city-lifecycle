@@ -28,6 +28,8 @@ export const storeFood = (
  *
  * While the production, net of its units' support, is below 0, the units it can't support go, furthest from the city
  *  first: each is handed to the `Unsupported` rules, and its support (a `ProductionSupportType` yield) is given back.
+ *  While production is short, a unit destroyed since `cityYields` was worked out (or by an earlier disband) gives its
+ *  support back first, and isn't lost again.
  *  Nothing is added to the build while a `CivilDisorder` rule holds for the city.
  */
 export const buildWithProduction = (
@@ -41,31 +43,52 @@ export const buildWithProduction = (
   const cityBuild = cityBuildRegistry.getByCity(city),
     availableProduction = production.clone();
 
-  (cityYields as (Yield | InstanceType<UnitYieldType>)[])
-    .filter(
-      (cityYield): cityYield is InstanceType<UnitYieldType> =>
-        cityYield instanceof ProductionSupportType
-    )
-    .sort(
-      (yieldA, yieldB) =>
-        (yieldB.unit()?.tile().distanceFrom(city.tile()) ?? 0) -
-        (yieldA.unit()?.tile().distanceFrom(city.tile()) ?? 0)
-    )
-    .forEach((cityYield) => {
-      if (availableProduction.value() >= 0) {
-        return;
-      }
-
-      const unit = cityYield.unit();
-
-      if (unit === null) {
-        return;
-      }
-
-      ruleRegistry.process(Unsupported, city, unit, cityYield as Yield);
-
+  const supportYields = (cityYields as (Yield | InstanceType<UnitYieldType>)[])
+      .filter(
+        (cityYield): cityYield is InstanceType<UnitYieldType> =>
+          cityYield instanceof ProductionSupportType
+      )
+      .sort(
+        (yieldA, yieldB) =>
+          (yieldB.unit()?.tile().distanceFrom(city.tile()) ?? 0) -
+          (yieldA.unit()?.tile().distanceFrom(city.tile()) ?? 0)
+      ),
+    givenBack: Set<Yield> = new Set(),
+    giveBack = (cityYield: InstanceType<UnitYieldType>): void => {
+      givenBack.add(cityYield as Yield);
       availableProduction.subtract(cityYield as Yield);
-    });
+    },
+    // While the city is short, a unit already gone (cargo lost with a transport disbanded here, before or during this
+    //  loop, or Settlers lost to famine) stands in for one that would be disbanded: its support is given back, and it
+    //  isn't lost again. With production to spare, its support for the turn is still owed (civ-clone/web-renderer#1000).
+    giveBackDestroyed = (): void =>
+      supportYields.forEach((cityYield) => {
+        if (
+          availableProduction.value() < 0 &&
+          !givenBack.has(cityYield as Yield) &&
+          cityYield.unit()?.destroyed() === true
+        ) {
+          giveBack(cityYield);
+        }
+      });
+
+  supportYields.forEach((cityYield) => {
+    giveBackDestroyed();
+
+    if (availableProduction.value() >= 0 || givenBack.has(cityYield as Yield)) {
+      return;
+    }
+
+    const unit = cityYield.unit();
+
+    if (unit === null) {
+      return;
+    }
+
+    ruleRegistry.process(Unsupported, city, unit, cityYield as Yield);
+
+    giveBack(cityYield);
+  });
 
   const updatedCityYields = city.yields();
 
