@@ -11,6 +11,7 @@ import {
   hasSpecialist,
 } from '../lib/playerActions';
 import {
+  emitBuildingCancelled,
   emitBuildingHeld,
   emitTileReleased,
   emitTileWorked,
@@ -100,7 +101,7 @@ const recordingEngine = () => {
     } as any);
 
 describe('events', (): void => {
-  it('tells clients of a worked or released tile and a held build, with just those arguments', (): void => {
+  it('tells clients of a worked or released tile and a held or cancelled build, with just those arguments', (): void => {
     const { emitted, engine } = recordingEngine(),
       city = named('city'),
       tile = named('tile'),
@@ -110,11 +111,13 @@ describe('events', (): void => {
     emitTileWorked(city, tile, engine);
     emitTileReleased(city, tile, engine);
     emitBuildingHeld(cityBuild, item, ['a', null], engine);
+    emitBuildingCancelled(cityBuild, item, 'unavailable', engine);
 
     expect(emitted).to.eql([
       ['city:tile-worked', city, tile],
       ['city:tile-released', city, tile],
       ['city:building-held', cityBuild, item, ['a', null]],
+      ['city:building-cancelled', cityBuild, item, 'unavailable'],
     ]);
   });
 });

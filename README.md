@@ -25,7 +25,8 @@ A city's turn and what goes with it, as a library for a ruleset's city rules:
 - `lib/unsupported`: `disbandUnsupported(city, unit)`.
 - `lib/claimName`: `claimName(city, cityNames)` and the `CityNames` type.
 - `lib/events`: `emitTileWorked(city, tile, engine)`, `emitTileReleased(city, tile, engine)`,
-  `emitBuildingHeld(cityBuild, item, held, engine)` and `emitBuildingComplete(cityBuild, built, engine)`, for clients.
+  `emitBuildingHeld(cityBuild, item, held, engine)`, `emitBuildingCancelled(cityBuild, item, reason, engine)` and
+  `emitBuildingComplete(cityBuild, built, engine)`, for clients.
 - `lib/assignWorkers`: placing a city's citizens on its best tiles or as specialists (`assignWorkers`, `assignWorker`,
   `reassignWorkers`, `releaseCitizens`, `changeWorkedTile`, `addSpecialist`, `changeSpecialist`, `citizenCount` and
   the rest), lifted from library-city 0.1.4. With no `CityTileYield` or `SpecialistAvailable` rule registered they do
