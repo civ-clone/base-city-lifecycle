@@ -1,6 +1,8 @@
 import { IBuildable as Buildable } from '@civ-clone/core-city-build/Buildable';
 import City from '@civ-clone/core-city/City';
-import CityBuild from '@civ-clone/core-city-build/CityBuild';
+import CityBuild, {
+  CityBuildClearedReason,
+} from '@civ-clone/core-city-build/CityBuild';
 import { Engine } from '@civ-clone/core-engine/Engine';
 import Tile from '@civ-clone/core-world/Tile';
 
@@ -37,6 +39,21 @@ export const emitBuildingHeld = (
   engine: Engine
 ): void => {
   engine.emit('city:building-held', cityBuild, item, held);
+};
+
+/**
+ * Tells clients that `cityBuild` has stopped building `item`, for `reason` (`cancelled`, `unavailable`, `captured`, or
+ *  a ruleset's own), so they can show the build as it is now (civ-clone/web-renderer#978). A ruleset raises it before
+ *  a city on Auto chooses again, so what was dropped is `item` and `reason`, not `cityBuild.cleared()` or
+ *  `cityBuild.building()`, which may already have moved on.
+ */
+export const emitBuildingCancelled = (
+  cityBuild: CityBuild,
+  item: Buildable,
+  reason: CityBuildClearedReason,
+  engine: Engine
+): void => {
+  engine.emit('city:building-cancelled', cityBuild, item, reason);
 };
 
 /**
